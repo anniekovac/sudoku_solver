@@ -1,6 +1,5 @@
 import sys
 import matplotlib.pyplot as plt
-import pdb
 import math
 
 class SudokuSolver(object):
@@ -10,15 +9,15 @@ class SudokuSolver(object):
         self.valid_digits = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 
-        self.sudoku_board = [[8, 0, 0, 0, 0, 4, 1, 0, 0],
-                             [6, 0, 0, 0, 7, 0, 0, 0, 2],
-                             [0, 0, 0, 0, 6, 1, 5, 0, 3],
-                             [7, 0, 0, 0, 4, 0, 0, 0, 1],
-                             [0, 9, 6, 0, 0, 0, 8, 4, 7],
-                             [4, 1, 2, 0, 0, 5, 0, 3, 9],
-                             [1, 5, 9, 8, 0, 3, 0, 0, 4],
-                             [0, 6, 4, 1, 5, 7, 0, 0, 0],
-                             [2, 0, 0, 0, 0, 6, 3, 0, 0]]
+        self.sudoku_board = [[0, 0, 0, 0, 0, 2, 0, 0, 0],
+                             [0, 4, 0, 0, 7, 0, 0, 0, 0],
+                             [2, 0, 0, 3, 4, 0, 0, 8, 1],
+                             [0, 7, 9, 0, 0, 0, 0, 0, 0],
+                             [0, 0, 8, 4, 0, 0, 7, 0, 3],
+                             [0, 0, 0, 0, 1, 0, 0, 6, 0],
+                             [0, 0, 0, 1, 0, 0, 5, 0, 0],
+                             [0, 0, 3, 0, 6, 0, 0, 1, 4],
+                             [0, 5, 0, 0, 0, 0, 6, 0, 0]]                             
 
         self.mark_up_board = [[0 for x in xrange(0,9)] for x in xrange(0,9)]
 
@@ -28,22 +27,22 @@ class SudokuSolver(object):
         self.extract_column = lambda sudoku, column_index : [item[column_index] for item in sudoku]
         self.extract_row = lambda sudoku, row_index : sudoku[row_index]
 
-    def extract_sub(self, sudoku, x, y):
+    def extract_sub(self, sudoku_board, pos):
         """
         Extracting sub-matrix of 3x3 elements from sudoku board.
         args:
-            x, y - ints (coordinates)
+            coordinates - tuple (x, y)
         return:
-            flat_submatrix - list (size 9)
+            list (size 9)
         """
-        # x = x//3
         int_division = lambda x : int((float(x)/float(3)))
+
+        x, y = pos
 
         #looking for submatrix coordinates
         x_submat, y_submat = (int_division(x), int_division(y))
 
-        #extracting submatrix and turning it into flat list
-        submatrix = [ sudoku[y_submat*3 + i][x_submat*3 : x_submat*3 + 3] for i in xrange(0, 3)]
+        submatrix = [ sudoku_board[y_submat*3 + i][x_submat*3 : x_submat*3 + 3] for i in xrange(0, 3)]
         flat_submatrix = [element for sublist in submatrix for element in sublist]
         return flat_submatrix
 
@@ -74,8 +73,7 @@ class SudokuSolver(object):
                 digit = n[8 - y][x]
                 if isinstance(digit, tuple):
                     #parsing tuple
-                    #a = "".join(map(str, a))
-                    digit = "".join(str(digit).split("(", 1)[-1].rsplit(")",1)[0].split(", "))
+                    digit = "".join(map(str, digit))
                 plt.text(x + 0.1, y + 0.1, str(digit), fontsize=15)
         plt.show()
 
@@ -102,16 +100,19 @@ class SudokuSolver(object):
         Finding possible solution(s) for tile given with coordinates 
         and writing that solution into self.mark_up_board as a tuple.
         """
-        x, y = (coordinates)
+        x, y = coordinates
+
+        submatrix = self.extract_sub(self.sudoku_board, (x, y))
         row = self.extract_row(self.sudoku_board, y)
         column = self.extract_column(self.sudoku_board, x)
-        submatrix = self.extract_sub(self.sudoku_board, *coordinates)
 
         #possible digits for this tile are the ones not in row, column or submatrix
         possible_digits = [item for item in self.valid_digits if item not in row + column + submatrix]
 
         #writing possible solutions into mark_up_board
-        self.mark_up_board[y][x] = tuple(possible_digits)
+        if possible_digits:
+            self.mark_up_board[y][x] = tuple(possible_digits)
+
 
     def erase_markers(self):
         """
@@ -123,7 +124,8 @@ class SudokuSolver(object):
                 if element == "x":
                     self.sudoku_board[i][j] = 0
                 else:
-                    self.mark_up_board[i][j] = element
+                    if element != 0:
+                        self.mark_up_board[i][j] = element
 
     def write_one_possible_solution(self, counter):
         """
@@ -140,31 +142,122 @@ class SudokuSolver(object):
         for i, row in enumerate(self.mark_up_board):
             for j, element in enumerate(row):
                 if isinstance(element, tuple):
-                    if len(element) == 1:
+                    if len(element) == 1 and self.sudoku_board[i][j] == 0:
                         self.sudoku_board[i][j] = int(*element)
                         counter -= 1
         return counter
 
-    def find_same_possibilities_in_group(self, index, which_group):
-        if which_group == "row":
-            group = self.extract_row(self.mark_up_board, index)
-        elif which_group == "column":
-            group = self.extract_column(self.mark_up_board, index)
-        elif which_group == "submatrix":
-            group = self.extract_sub(self.mark_up_board, *index)
-        else:
-            raise NameError, "Not specified name of the group you want to search"
-        
-        tuples = [temp for temp in group if isinstance(temp, tuple)]
-        duplicates = [x for n, x in enumerate(tuples) if x in tuples[:n]]
+    def find_one_possible_in_group(self, index, which_group):
+        """
+        If there is digit only in one tile of the group, this function writes
+        that digit in that tile, both on the mark_up_board and sudoku_board.
+        """
 
-        for item in duplicates:
-            if tuples.count(item) == len(item):
-                for digit in item: 
-                    for i, element in enumerate(group):
-                        if isinstance(element, tuple) and element != item:
-                            group[i] = tuple([num for num in element if num != digit])
-        return group
+        group_dict = {
+        "row" : lambda : self.extract_row(self.mark_up_board, index),
+        "column" : lambda : self.extract_column(self.mark_up_board, index),
+        "submatrix" : lambda : self.extract_sub(self.mark_up_board, index)
+        }
+
+        group = group_dict[which_group]()
+        group = [list(item) for item in group if isinstance(item, tuple)]
+
+        flatten_group = [digit for item in group for digit in item]
+        flatten_set = list(set(flatten_group))
+
+
+        #checking if there is one and only tuple in a group
+        #that contains certain digit
+        for digit in flatten_set:
+            possib = [item.count(digit) for item in group]
+
+            if possib.count(0) == len(possib) - 1 and possib.count(1) == 1:
+                second_index = [i for i, item in enumerate(group_dict[which_group]()) if isinstance(item, tuple) and digit in item][0]
+                if which_group == "row":
+                    self.mark_up_board[index][second_index] = (digit, )
+                    self.sudoku_board[index][second_index] = digit
+                elif which_group == "column":
+                    self.mark_up_board[second_index][index] = (digit, )
+                    self.sudoku_board[second_index][index] = digit
+                elif which_group == "submatrix":
+                    sub = group_dict[which_group]()[second_index]
+                    for i in xrange(0,9):
+                        try:
+                            j = self.mark_up_board[i].index(sub)
+                            break
+                        except ValueError:
+                            continue
+
+                    self.mark_up_board[i][j] = (digit, )
+                    self.sudoku_board[i][j] = digit
+
+    def find_two_possibles_in_submatrix(self, index):
+        """
+        This function searches for pairs, triples or quadriples
+        that appear in two, three, or four different tiles in submatrix.
+        If pair of possible digits appears two times in submatrix,
+        we know that we can eliminate those two digits from other tiles
+        in that submatrix.
+        """
+        group = self.extract_sub(self.mark_up_board, index)
+        group_sets = [set(item) for item in group if isinstance(item, tuple) and len(item) > 1]
+
+        new_group_sets = []
+        for sett in group_sets:
+            if sett not in new_group_sets:
+                new_group_sets.append(sett)
+
+        for sett in new_group_sets:
+            if group_sets.count(sett) != len(list(sett)):
+                continue
+
+            for digit in list(sett):
+                possibles = [item for item in group if isinstance(item, tuple) and (digit in item) and set(item) != sett]
+                for poss in possibles:
+                    for i in xrange(0,9):
+                        try:
+                            j = self.mark_up_board[i].index(poss)
+                            break
+                        except ValueError:
+                            continue
+                    if self.extract_sub(self.mark_up_board, (j,i)) == group:
+                        self.mark_up_board[i][j] = tuple([item for item in poss if item != digit])
+
+    def find_two_possibles_in_group(self, index, which_group):
+        """
+        This function searches for pairs, triples or quadriples
+        that appear in two, three, or four different tiles in group.
+        If pair of possible digits appears two times in group,
+        we know that we can eliminate those two digits from other tiles
+        in that group.
+        """        
+        group_dict = {
+        "row" : lambda : self.extract_row(self.mark_up_board, index),
+        "column" : lambda : self.extract_column(self.mark_up_board, index)
+        }
+
+        group = group_dict[which_group]()
+        group = [list(item) for item in group if isinstance(item, tuple)]
+
+        group_sets = [set(item) for item in group]
+        new_group_sets = []
+        for sett in group_sets:
+            if sett not in new_group_sets:
+                new_group_sets.append(sett)
+
+        for sett in new_group_sets:
+            if group_sets.count(sett) != len(list(sett)):
+                continue
+
+            for digit in list(sett):
+                for i, item in enumerate(group_dict[which_group]()):
+                    item = [item] if isinstance(item, int) \
+                            else list(item)
+                    if digit in item and set(item) != sett:
+                        if which_group == "column":
+                            self.mark_up_board[i][index] = tuple([dig for dig in item if dig not in list(sett)])
+                        elif which_group == "row":
+                            self.mark_up_board[index][i] = tuple([dig for dig in item if dig not in list(sett)])
 
     def write_definite_solutions_loop(self):
         counter = self.number_of_empty_tiles
@@ -173,7 +266,6 @@ class SudokuSolver(object):
         it = 0
         while counter:
             it += 1
-            print "Counter: ", counter
             empty_coordinates = (-2, -2)
             while empty_coordinates != (-1,-1):
                 empty_coordinates = self.find_empty()
@@ -185,33 +277,72 @@ class SudokuSolver(object):
             #if number of iterations is bigger than 15, it means we're 
             #stuck in a loop, another algorithm needs to be implemented
             #for hard sudokus
-            if it > 15:
+            if it > 8:
                 break
+
+    def update_mark_up_board(self):
+        """
+        Updating values of self.mark_up_board by looking at
+        certain solutions from self.sudoku_board. Eliminating
+        impossible solutions from self.mark_up_board_tuples.
+        """
+        for i in xrange(0,9):
+            for j in xrange(0,9):
+                submatrix = self.extract_sub(self.sudoku_board, (j,i))
+                row = self.extract_row(self.sudoku_board, i)
+                column = self.extract_column(self.sudoku_board, j)
+
+                possible_digits = [item for item in self.valid_digits if item not in row + column + submatrix]
+                #writing possible solutions into mark_up_board
+                if possible_digits and self.sudoku_board[i][j] == 0 and len(possible_digits) < len(self.mark_up_board[i][j]):
+                    self.mark_up_board[i][j] = tuple(possible_digits)
+
+    def tree_preprocessing(self):
+        """
+        Preprocessing for minimazing possible solutions to 
+        speed up the tree.
+        """
+        broj = 12
+        while broj:
+
+            for i in xrange(0, 9):
+                self.find_one_possible_in_group(i, "column")
+                self.find_one_possible_in_group(i, "row")
+
+            for i in xrange(0,9):
+                for j in xrange(0,9):
+                    self.find_one_possible_in_group((j,i), "submatrix")
+             
+            for i in xrange(0, 9):
+                self.find_two_possibles_in_group(i, "column")
+                self.find_two_possibles_in_group(i, "row")
+
+            for i in xrange(0,9):
+                for j in xrange(0,9):
+                    self.find_two_possibles_in_submatrix((j,i))
+
+            for i in xrange(0,9):
+                for j in xrange(0,9):
+                    if self.sudoku_board[i][j] == 0:
+                        tile = self.mark_up_board[i][j]
+                        if len (tile) == 1:
+                            self.sudoku_board[i][j] = tile[0]
+
+            if not self.number_of_empty_tiles:
+                return
+
+            self.update_mark_up_board()
+
+            broj -= 1
 
 
 def main():
     sudoku = SudokuSolver()
 
-### TRYING TO SOLVE SUDOKU USING ONLY CERTAIN SOLUTIONS
-    
-    
     sudoku.write_definite_solutions_loop()
+    sudoku.tree_preprocessing()
 
-### TRYING TO ELIMINATE IMPOSSIBLE SOLUTIONS FROM GROUPS
-    
-    for i in xrange(0, 9):
-        new_row = sudoku.find_same_possibilities_in_group(i, "row")
-        sudoku.mark_up_board[i] = new_row
-        new_col = sudoku.find_same_possibilities_in_group(i, "column")
-        for row_index, row in enumerate(sudoku.mark_up_board):
-            sudoku.mark_up_board[row_index][i] = new_col[row_index]
-            
-#    sudoku.write_definite_solutions_loop()
-
-    # print "Number of blank spaces in the beginning: ", sudoku.number_of_empty_tiles
-    # print "Number of iterations: ", it
-    sudoku.plot_sudoku(sudoku.sudoku_board)
-#    sudoku.plot_sudoku(sudoku.mark_up_board)
+    sudoku.plot_sudoku(sudoku.mark_up_board)         
 
 if __name__ == "__main__":
     main()
