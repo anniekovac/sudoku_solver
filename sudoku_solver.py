@@ -1,37 +1,81 @@
 import sys
 import matplotlib.pyplot as plt
-import math
+import os
 
 class SudokuSolver(object):
 
     def __init__(self):
 
         self.valid_digits = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-
-
-        self.sudoku_board = [[0, 0, 0, 0, 0, 2, 0, 0, 0],
-                             [0, 4, 0, 0, 7, 0, 0, 0, 0],
-                             [2, 0, 0, 3, 4, 0, 0, 8, 1],
-                             [0, 7, 9, 0, 0, 0, 0, 0, 0],
-                             [0, 0, 8, 4, 0, 0, 7, 0, 3],
-                             [0, 0, 0, 0, 1, 0, 0, 6, 0],
-                             [0, 0, 0, 1, 0, 0, 5, 0, 0],
-                             [0, 0, 3, 0, 6, 0, 0, 1, 4],
-                             [0, 5, 0, 0, 0, 0, 6, 0, 0]]                             
-
+        self.sudoku_board = [[0 for x in xrange(0,9)] for x in xrange(0,9)]                      
         self.mark_up_board = [[0 for x in xrange(0,9)] for x in xrange(0,9)]
-
         self.number_of_empty_tiles = len([x for sublist in self.sudoku_board \
                                           for element in sublist if element == 0])
-
         self.extract_column = lambda sudoku, column_index : [item[column_index] for item in sudoku]
         self.extract_row = lambda sudoku, row_index : sudoku[row_index]
+
+    def find_min_possibilities(self):
+        """
+        Function for finding first tile with minimal possibilities 
+        in self.mark_up_board.
+
+        return: 
+                min_poss -- tuple ((row_index, column_index), length of tile)
+        """
+        min_poss = ((-1,-1), 9)
+        for row_idx, row in enumerate(self.mark_up_board):
+            for col_idx, col in enumerate(self.mark_up_board):
+                tile = self.mark_up_board[row_idx][col_idx]
+                if isinstance(tile, tuple) and (len(tile) < min_poss[1]) and (len(tile) > 1):
+                    min_poss = ((row_idx, col_idx), len(tile))
+        return min_poss
+
+    def check_valid_solutions(self, board):
+        """
+        Checking if given solution for board has 
+        inconsistent (wrong) solutions.
+        """
+        extract_zeros = lambda group : [item for item in group if item != 0]
+        for idx in xrange(0, len(self.valid_digits)):
+            row = self.extract_row(board, idx)
+            row = extract_zeros(row)
+            if len(set(row)) < len(row):
+                raise ValueError, "Invalid solution for row {}".format(idx)
+
+            column = self.extract_column(board, idx)
+            column = extract_zeros(column)
+            if len(set(column)) < len(column):
+                raise ValueError, "Invalid solution for column {}".format(idx)
+
+            for idx_col in xrange(0, len(self.valid_digits)):
+                submatrix = self.extract_sub(board, (idx, idx_col))
+                submatrix = extract_zeros(submatrix)
+                if len(set(submatrix)) < len(submatrix):
+                    raise ValueError, "Invalid solution for sumbatrix"                
+
+    def read_sudoku_from_txt(self, file_path):
+        """
+        args:
+                file_path - str (path to txt file with written sudokus)
+        """
+        with open(file_path, 'r') as file:
+            board = []
+            for line in file:
+                line = line.strip(os.linesep)
+                if line:
+                    board.append([int(item) for item in line])
+        self.sudoku_board = board
 
     def extract_sub(self, sudoku_board, pos):
         """
         Extracting sub-matrix of 3x3 elements from sudoku board.
         args:
-            coordinates - tuple (x, y)
+            sudoku_board - list of lists (sudoku board from which 
+                                          you want to extract submatrix)
+
+            coordinates - tuple (x, y) - coordinates of tile
+                                         from the board sudoku_board,
+                                         they can be in range (0,0) --> (8,8)
         return:
             list (size 9)
         """
@@ -323,10 +367,12 @@ class SudokuSolver(object):
 
             for i in xrange(0,9):
                 for j in xrange(0,9):
-                    if self.sudoku_board[i][j] == 0:
-                        tile = self.mark_up_board[i][j]
-                        if len (tile) == 1:
+                    tile = self.mark_up_board[i][j]
+                    if isinstance(tile, tuple) and len(tile) == 1:
+                        self.mark_up_board[i][j] = tile[0]
+                        if self.sudoku_board[i][j] == 0:
                             self.sudoku_board[i][j] = tile[0]
+
 
             if not self.number_of_empty_tiles:
                 return
@@ -339,8 +385,13 @@ class SudokuSolver(object):
 def main():
     sudoku = SudokuSolver()
 
+    sudoku.read_sudoku_from_txt("invalid.txt")
+    import pdb; pdb.set_trace()
+    sudoku.check_valid_solutions(sudoku.sudoku_board)
+
     sudoku.write_definite_solutions_loop()
     sudoku.tree_preprocessing()
+    min_possibility = sudoku.find_min_possibilities()
 
     sudoku.plot_sudoku(sudoku.mark_up_board)         
 
