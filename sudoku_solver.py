@@ -1,3 +1,9 @@
+'''
+Created on 24. tra 2017.
+
+@author: Annie
+'''
+
 import sys
 import matplotlib.pyplot as plt
 import os
@@ -8,6 +14,8 @@ class SudokuSolver(object):
 
         self.valid_digits = [1, 2, 3, 4, 5, 6, 7, 8, 9]
         self.sudoku_board = [[0 for x in xrange(0,9)] for x in xrange(0,9)]                      
+        self.read_sudoku_from_txt("sudoku.txt")
+
         self.mark_up_board = [[0 for x in xrange(0,9)] for x in xrange(0,9)]
         self.number_of_empty_tiles = len([x for sublist in self.sudoku_board \
                                           for element in sublist if element == 0])
@@ -16,7 +24,8 @@ class SudokuSolver(object):
 
     def find_min_possibilities(self):
         """
-        Function for finding first tile with minimal possibilities 
+        Function for finding first tile with minimal 
+        number of possibilities 
         in self.mark_up_board.
 
         return: 
@@ -35,6 +44,10 @@ class SudokuSolver(object):
         Checking if given solution for board has 
         inconsistent (wrong) solutions.
         """
+
+        if any([any(row) for row in self.mark_up_board]) and not self.is_solved(self.mark_up_board):
+            raise ValueError, "There is one blank space in mark_up_board!"
+
         extract_zeros = lambda group : [item for item in group if item != 0]
         for idx in xrange(0, len(self.valid_digits)):
             row = self.extract_row(board, idx)
@@ -51,7 +64,11 @@ class SudokuSolver(object):
                 submatrix = self.extract_sub(board, (idx, idx_col))
                 submatrix = extract_zeros(submatrix)
                 if len(set(submatrix)) < len(submatrix):
-                    raise ValueError, "Invalid solution for sumbatrix"                
+                    raise ValueError, "Invalid solution for sumbatrix"
+        return True
+
+    def is_solved(self, board):
+        return all([all(row) for row in board])
 
     def read_sudoku_from_txt(self, file_path):
         """
@@ -65,6 +82,7 @@ class SudokuSolver(object):
                 if line:
                     board.append([int(item) for item in line])
         self.sudoku_board = board
+
 
     def extract_sub(self, sudoku_board, pos):
         """
@@ -119,8 +137,10 @@ class SudokuSolver(object):
                     #parsing tuple
                     digit = "".join(map(str, digit))
                 plt.text(x + 0.1, y + 0.1, str(digit), fontsize=15)
-        plt.show()
 
+        plt.show(block=False)
+        #plt.pause(0.001)
+        
     def find_empty(self):
         """
         Finding empty tile in sudoku, and marking it so 
@@ -190,50 +210,6 @@ class SudokuSolver(object):
                         self.sudoku_board[i][j] = int(*element)
                         counter -= 1
         return counter
-
-    def find_one_possible_in_group(self, index, which_group):
-        """
-        If there is digit only in one tile of the group, this function writes
-        that digit in that tile, both on the mark_up_board and sudoku_board.
-        """
-
-        group_dict = {
-        "row" : lambda : self.extract_row(self.mark_up_board, index),
-        "column" : lambda : self.extract_column(self.mark_up_board, index),
-        "submatrix" : lambda : self.extract_sub(self.mark_up_board, index)
-        }
-
-        group = group_dict[which_group]()
-        group = [list(item) for item in group if isinstance(item, tuple)]
-
-        flatten_group = [digit for item in group for digit in item]
-        flatten_set = list(set(flatten_group))
-
-
-        #checking if there is one and only tuple in a group
-        #that contains certain digit
-        for digit in flatten_set:
-            possib = [item.count(digit) for item in group]
-
-            if possib.count(0) == len(possib) - 1 and possib.count(1) == 1:
-                second_index = [i for i, item in enumerate(group_dict[which_group]()) if isinstance(item, tuple) and digit in item][0]
-                if which_group == "row":
-                    self.mark_up_board[index][second_index] = (digit, )
-                    self.sudoku_board[index][second_index] = digit
-                elif which_group == "column":
-                    self.mark_up_board[second_index][index] = (digit, )
-                    self.sudoku_board[second_index][index] = digit
-                elif which_group == "submatrix":
-                    sub = group_dict[which_group]()[second_index]
-                    for i in xrange(0,9):
-                        try:
-                            j = self.mark_up_board[i].index(sub)
-                            break
-                        except ValueError:
-                            continue
-
-                    self.mark_up_board[i][j] = (digit, )
-                    self.sudoku_board[i][j] = digit
 
     def find_two_possibles_in_submatrix(self, index):
         """
@@ -317,7 +293,7 @@ class SudokuSolver(object):
 
             self.erase_markers()
             counter = self.write_one_possible_solution(counter)
-            
+
             #if number of iterations is bigger than 15, it means we're 
             #stuck in a loop, another algorithm needs to be implemented
             #for hard sudokus
@@ -346,16 +322,11 @@ class SudokuSolver(object):
         Preprocessing for minimazing possible solutions to 
         speed up the tree.
         """
+
+        self.update_mark_up_board()
+
         broj = 12
         while broj:
-
-            for i in xrange(0, 9):
-                self.find_one_possible_in_group(i, "column")
-                self.find_one_possible_in_group(i, "row")
-
-            for i in xrange(0,9):
-                for j in xrange(0,9):
-                    self.find_one_possible_in_group((j,i), "submatrix")
              
             for i in xrange(0, 9):
                 self.find_two_possibles_in_group(i, "column")
@@ -377,23 +348,4 @@ class SudokuSolver(object):
             if not self.number_of_empty_tiles:
                 return
 
-            self.update_mark_up_board()
-
             broj -= 1
-
-
-def main():
-    sudoku = SudokuSolver()
-
-    sudoku.read_sudoku_from_txt("invalid.txt")
-    import pdb; pdb.set_trace()
-    sudoku.check_valid_solutions(sudoku.sudoku_board)
-
-    sudoku.write_definite_solutions_loop()
-    sudoku.tree_preprocessing()
-    min_possibility = sudoku.find_min_possibilities()
-
-    sudoku.plot_sudoku(sudoku.mark_up_board)         
-
-if __name__ == "__main__":
-    main()
